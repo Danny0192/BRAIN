@@ -7,8 +7,11 @@ from filterpy.kalman import KalmanFilter
 import time
 import traceback
 from collections import deque
-
+import csv
+import time 
+from datetime import datetime
 try:
+    nombre_archivo = 'datos.csv'
     # Definir el dispositivo para YOLO
     print("Inicializando YOLO...")
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -101,6 +104,12 @@ try:
         15: "Tobillo_Izq",
         16: "Tobillo_Der"
     }
+
+    def agregar_fila_csv(nombre_archivo, datos):
+        """Agrega una fila de datos a un archivo CSV."""
+        with open(nombre_archivo, mode='a', newline='', encoding='utf-8') as archivo:
+            escritor = csv.writer(archivo)
+            escritor.writerow(datos)
 
     # Función para convertir de píxeles a coordenadas 3D en centímetros
     def pixel_to_cm(pixel_x, pixel_y, depth_value, intrinsics):
@@ -323,7 +332,8 @@ try:
                         print(f"  Pos: X={x_filtered:.1f}, Y={y_filtered:.1f}, Z={z_filtered:.1f} cm")
                         print(f"  Vel: X={vx:.1f}, Y={vy:.1f}, Z={vz:.1f} cm/s (Mag={vel_magnitude:.1f})")
                         print(f"  Acc: X={ax:.1f}, Y={ay:.1f}, Z={az:.1f} cm/s² (Mag={acc_magnitude:.1f})")
-                    
+                        current = datetime.now()
+                        agregar_fila_csv(nombre_archivo, [str(current.fromtimestamp),idx,ax,ay,az])
                     # Dibujar keypoint base
                     cv2.circle(color_image, (x, y), 5, (0, 255, 0), -1)
                     cv2.putText(color_image, f"{idx}", (x + 5, y - 5), 
