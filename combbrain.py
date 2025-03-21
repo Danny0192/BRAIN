@@ -97,8 +97,8 @@ try:
     
     # Definir nombres de los keypoints
     keypoint_names = {
-        9: "Muñeca_Izq",
-        10: "Muñeca_Der",
+        7: "Codo_Izq",
+        8: "Codo_Der",
         13: "Rodilla_Izq",
         14: "Rodilla_Der",
         15: "Tobillo_Izq",
@@ -211,7 +211,7 @@ try:
                 print(f"Frame: {frame_count} | Tiempo: {current_time:.2f}s | dt: {dt*1000:.1f}ms")
                 print("--------------------------------------------------")
                 
-                keypoints_of_interest = [9, 10, 13, 14, 15, 16]
+                keypoints_of_interest = [7, 8, 13, 14, 15, 16]
 
                 for idx, (x, y) in enumerate(keypoints[0]):
                     if idx not in keypoints_of_interest:
@@ -332,8 +332,9 @@ try:
                         print(f"  Pos: X={x_filtered:.1f}, Y={y_filtered:.1f}, Z={z_filtered:.1f} cm")
                         print(f"  Vel: X={vx:.1f}, Y={vy:.1f}, Z={vz:.1f} cm/s (Mag={vel_magnitude:.1f})")
                         print(f"  Acc: X={ax:.1f}, Y={ay:.1f}, Z={az:.1f} cm/s² (Mag={acc_magnitude:.1f})")
-                        current = datetime.now()
-                        agregar_fila_csv(nombre_archivo, [str(current.fromtimestamp),idx,ax,ay,az])
+                        current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # Hasta milisegundos
+                        agregar_fila_csv(nombre_archivo, [current_time_str, idx, ax, ay, az])
+
                     # Dibujar keypoint base
                     cv2.circle(color_image, (x, y), 5, (0, 255, 0), -1)
                     cv2.putText(color_image, f"{idx}", (x + 5, y - 5), 
