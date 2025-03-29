@@ -11,7 +11,7 @@ import csv
 import time 
 from datetime import datetime
 try:
-    nombre_archivo = 'datos.csv'
+    nombre_archivo = 'datosss.csv'
     # Definir el dispositivo para YOLO
     print("Inicializando YOLO...")
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -184,7 +184,7 @@ try:
             depth_image = np.asanyarray(depth_frame.get_data())
 
             # Detección con YOLOv8 Pose
-            results = model(color_image, conf=0.05)
+            results = model(color_image, conf=0.7)
 
             current_time = cv2.getTickCount() / cv2.getTickFrequency()
             
@@ -365,9 +365,12 @@ try:
             frame_count += 1
             
             # Controlar la velocidad de impresión
+            # Controlar la frecuencia de muestreo (ej. 50 Hz = 0.02 s)
+            target_interval = 1 / 10.0 
             elapsed = time.time() - start_time
-            if elapsed < 0.033:  # 30 fps target
-                time.sleep(0.033 - elapsed)
+            if elapsed < target_interval:
+                time.sleep(target_interval - elapsed)
+
             
         except Exception as e:
             print(f"\nError en el bucle principal: {e}")

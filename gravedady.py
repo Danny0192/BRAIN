@@ -3,14 +3,14 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 # --- Archivos ---
-file_path = r'C:\Users\Danny\Desktop\Brain\BRAIN\RODILLAS2052quaternos.txt'
+file_path = r'C:\Users\Danny\Desktop\Brain\BRAIN\mentorrodilla1908quaterno.txt'
 csv_path = r'C:\Users\Danny\Desktop\Brain\BRAIN\datosss.csv'
 
 # --- Leer archivo TXT del acelerómetro ---
 df_acel = pd.read_csv(file_path, sep='\t')
 df_acel.columns = ["Time", "ID", "Ax_cm/s2", "Ay_cm/s2", "Az_cm/s2", "Q0", "Q1", "Q2", "Q3"]
 
-# Reemplazar comas por puntos
+# Reemplazar comas por puntos y convertir a float
 for col in ["Ax_cm/s2", "Ay_cm/s2", "Az_cm/s2", "Q0", "Q1", "Q2", "Q3"]:
     df_acel[col] = df_acel[col].astype(str).str.replace(',', '.').astype(float)
 
@@ -19,21 +19,25 @@ df_cam = pd.read_csv(csv_path, header=None)
 df_cam.columns = ["Time", "ID", "Ax_cm/s2", "Ay_cm/s2", "Az_cm/s2"]
 df_cam["ID"] = df_cam["ID"].astype(str)
 
-# --- Transformar aceleración a coordenadas globales ---
+# --- Transformar aceleración a coordenadas globales y corregir gravedad ---
 def transformar_aceleracion_global(row):
     acc_local = np.array([row["Ax_cm/s2"], row["Ay_cm/s2"], row["Az_cm/s2"]])
-    q = [row["Q0"], row["Q1"], row["Q2"], row["Q3"]]
-    rot = R.from_quat([q[1], q[2], q[3], q[0]])  # scipy usa orden [x, y, z, w]
+    q = [row["Q0"], row["Q1"], row["Q2"], row["Q3"]]  # [w, x, y, z]
+
+    # Crear la rotación usando scipy (requiere [x, y, z, w])
+    rot = R.from_quat([q[1], q[2], q[3], q[0]])
+
+    # Transformar la aceleración a coordenadas globales
     acc_global = rot.apply(acc_local)
 
-    # CORREGIR LA GRAVEDAD EN Z
-    acc_global[2] -= 981  # cm/s² (9.81 m/s²)
+    # Corregir la gravedad en eje vertical global (Y)
+    acc_global -= np.array([0, 981, 0])  # gravedad en cm/s²
 
     return pd.Series(acc_global, index=["Ax_global", "Ay_global", "Az_global"])
 
+# Aplicar transformación a todas las filas
 df_acel[["Ax_global", "Ay_global", "Az_global"]] = df_acel.apply(transformar_aceleracion_global, axis=1)
 df_acel["ID"] = df_acel["ID"].astype(str)
-df_acel[["Time", "ID", "Ax_global", "Ay_global", "Az_global"]].to_csv("aceleraciones_globales.txt", sep='\t', index=False)
 
 # --- Análisis de errores por ID ---
 def merge_and_analyze_by_id(df_acel, df_cam):
