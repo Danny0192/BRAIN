@@ -100,7 +100,7 @@ try:
     duracion_real = tiempo_ultimo_frame - tiempo_primer_frame if tiempo_primer_frame else 0
     duracion_video = frame_count / fps_corr if fps_corr else 0
 
-    print("\n✅ Video guardado correctamente.")
+    print("\n Video guardado correctamente.")
     print(f"Ruta: {ruta_completa}")
     print(f"Duración real: {duracion_real:.2f} s")
     print(f"Duración de video: {duracion_video:.2f} s")
