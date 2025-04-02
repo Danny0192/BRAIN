@@ -16,7 +16,7 @@ try:
     print("Inicializando YOLO...")
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(f"Usando dispositivo: {device}")
-    model = YOLO('yolov8n-pose.pt').to(device)
+    model = YOLO('yolov8s-pose.pt').to(device)
     print("Modelo YOLO cargado correctamente")
 
     # Iniciar RealSense
