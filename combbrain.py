@@ -10,7 +10,9 @@ from collections import deque
 import csv
 import time 
 from datetime import datetime
+from sort import Sort
 try:
+    tracker1 = Sort()
     nombre_archivo = 'datosss.csv'
     # Definir el dispositivo para YOLO
     print("Inicializando YOLO...")
@@ -202,6 +204,7 @@ try:
 
             detection_found = False
             for result in results:
+                """
                 if result.keypoints is None or len(result.keypoints) == 0:
                     continue
 
@@ -346,7 +349,135 @@ try:
                     color_b = int(255 * (1 - speed_ratio))
                     color_g = int(255 * (1 - speed_ratio))
                     color_r = int(255 * speed_ratio)
+                """
+                detection_found = True
+                keypoints = result.keypoints.xy.cpu().numpy().astype(int)
+                keypoints_of_interest = [7, 8, 13, 14, 15, 16]
+                keypoint = keypoints[0]
 
+                # Iterar sobre los keypoints de interés
+                for idx, (x, y) in enumerate(keypoint):
+                    if idx not in keypoints_of_interest:
+                        continue
+                    
+                    # Verificar límites válidos
+                    if x < 0 or x >= 640 or y < 0 or y >= 480:
+                        continue
+                    
+                    # Obtener profundidad en metros y convertir a 3D en centímetros
+                    depth = depth_frame.get_distance(x, y)
+                    if depth == 0:
+                        continue
+                    x_cm, y_cm, z_cm = pixel_to_cm(x, y, depth, color_intrinsics)
+                    current_position = np.array([x_cm, y_cm, z_cm])
+                    
+                    position_history[idx].append(current_position)
+                    time_history[idx].append(current_time)
+                    
+                    # Calcular velocidad y aceleración
+                    current_velocity = np.zeros(3)
+                    if len(position_history[idx]) >= 2 and len(time_history[idx]) >= 2:
+                        current_velocity = calculate_velocity(position_history[idx][-1], position_history[idx][-2], time_history[idx][-1], time_history[idx][-2])
+                    current_acceleration = np.zeros(3)
+                    if len(velocity_history[idx]) >= 2 and len(time_history[idx]) >= 2:
+                        current_acceleration = calculate_acceleration(velocity_history[idx][-1], velocity_history[idx][-2], time_history[idx][-1], time_history[idx][-2])
+                    
+                    smoothed_position = smooth_measurement(position_history[idx])
+                    smoothed_velocity = smooth_measurement(velocity_history[idx]) if velocity_history[idx] else np.zeros(3)
+                    
+                    kalman = kalman_filters[idx]
+
+                    # Inicializar el filtro de Kalman si no está inicializado
+                    if not kalman_initialized[idx]:
+                        kalman.x[0:3] = current_position
+                        if len(velocity_history[idx]) > 0:
+                            kalman.x[3:6] = current_velocity
+                        if len(velocity_history[idx]) > 1:
+                            kalman.x[6:9] = current_acceleration
+                        kalman_initialized[idx] = True
+                        continue
+                    
+                    # Actualizar la matriz de transición
+                    dt2 = dt * dt
+                    kalman.F[0, 3] = dt      # x = vx * dt
+                    kalman.F[0, 6] = 0.5 * dt2  # x = 0.5 * ax * dt^2
+                    kalman.F[1, 4] = dt      # y = vy * dt
+                    kalman.F[1, 7] = 0.5 * dt2  # y = 0.5 * ay * dt^2
+                    kalman.F[2, 5] = dt      # z = vz * dt
+                    kalman.F[2, 8] = 0.5 * dt2  # z = 0.5 * az * dt^2
+                    kalman.F[3, 6] = dt      # vx = ax * dt
+                    kalman.F[4, 7] = dt      # vy = ay * dt
+                    kalman.F[5, 8] = dt      # vz = az * dt
+                    
+                    # Predecir el estado actual
+                    kalman.predict()
+
+                    # Calcular la diferencia entre la medición y la predicción
+                    predicted_position = kalman.x[0:3]
+                    distance_to_prediction = np.linalg.norm(current_position - predicted_position)
+
+                    # Si la diferencia es demasiado grande, limitamos la actualización
+                    if distance_to_prediction > 100:  # Establecer umbral de distancia máxima para una actualización normal
+                        print(f"Gran cambio detectado en el keypoint {idx}. Se ajusta la actualización.")
+                        kalman.update(predicted_position)  # Usar la predicción anterior si el cambio es brusco
+                    else:
+                        kalman.update(current_position)  # Usar la medición actual si la diferencia es pequeña
+                    
+                    estimated_state = kalman.x
+                    x_filtered, y_filtered, z_filtered = estimated_state[0:3]
+                    vx, vy, vz = estimated_state[3:6]
+                    ax, ay, az = estimated_state[6:9]
+                    
+                    # Mezclar la estimación con las velocidades calculadas
+                    alpha_v = 0.3
+                    alpha_a = 0.5
+                    
+                    # Mezclar velocidades (Kalman + directas)
+                    vx = vx * (1 - alpha_v) + smoothed_velocity[0] * alpha_v
+                    vy = vy * (1 - alpha_v) + smoothed_velocity[1] * alpha_v
+                    vz = vz * (1 - alpha_v) + smoothed_velocity[2] * alpha_v
+                    
+                    # Mezclar aceleraciones (Kalman + directas)
+                    if len(velocity_history[idx]) >= 2:
+                        ax = ax * (1 - alpha_a) + current_acceleration[0] * alpha_a
+                        ay = ay * (1 - alpha_a) + current_acceleration[1] * alpha_a
+                        az = az * (1 - alpha_a) + current_acceleration[2] * alpha_a
+                    
+                    # Actualizar estado con valores mezclados
+                    kalman.x[3:6] = np.array([vx, vy, vz])
+                    kalman.x[6:9] = np.array([ax, ay, az])
+                    
+                    # Calcular magnitudes de velocidad y aceleración
+                    vel_magnitude = np.sqrt(vx**2 + vy**2 + vz**2)
+                    acc_magnitude = np.sqrt(ax**2 + ay**2 + az**2)
+                    
+                    # Limitar valores extremos
+                    vel_magnitude = min(vel_magnitude, 200)  # cm/s
+                    acc_magnitude = min(acc_magnitude, 1000)  # cm/s²
+                    
+                    # Imprimir resultados para depuración
+                    keypoint_name = keypoint_names.get(idx, f"Keypoint_{idx}")
+                    if idx in keypoints_of_interest:
+                        print(f"{keypoint_name}: ")
+                        print(f"  Pos: X={x_filtered:.1f}, Y={y_filtered:.1f}, Z={z_filtered:.1f} cm")
+                        print(f"  Vel: X={vx:.1f}, Y={vy:.1f}, Z={vz:.1f} cm/s (Mag={vel_magnitude:.1f})")
+                        print(f"  Acc: X={ax:.1f}, Y={ay:.1f}, Z={az:.1f} cm/s² (Mag={acc_magnitude:.1f})")
+                        current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                        agregar_fila_csv(nombre_archivo, [current_time_str, idx, ax, ay, az])
+
+                    # Dibujar keypoint en la imagen
+                    cv2.circle(color_image, (x, y), 5, (0, 255, 0), -1)
+                    cv2.putText(color_image, f"{idx}", (x + 5, y - 5), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+
+                    # Colorear según la velocidad
+                    max_speed = 100.0  # cm/s
+                    speed_ratio = min(vel_magnitude / max_speed, 1.0)
+                    color_b = int(255 * (1 - speed_ratio))
+                    color_g = int(255 * (1 - speed_ratio))
+                    color_r = int(255 * speed_ratio)
+
+                    cv2.circle(color_image, (x, y), 7, (color_r, color_g, color_b), 2)
             if detection_found:
                 print("--------------------------------------------------")
             
