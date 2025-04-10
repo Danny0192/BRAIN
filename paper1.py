@@ -39,7 +39,7 @@ try:
     cfg.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
     frame_size = (640, 480)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    fps_video = 17
+    fps_video = 10
     video_writer = cv2.VideoWriter(archivo_video, fourcc, fps_video, frame_size)
     print("Iniciando pipeline...")
     profile = pipe.start(cfg)
