@@ -294,8 +294,8 @@ try:
                     ax, ay, az = estimated_state[6:9]
                     
                     # Mezclar la estimación con las velocidades calculadas
-                    alpha_v = 0.3
-                    alpha_a = 0.5
+                    alpha_v = 0.5
+                    alpha_a = 0.7
                     
                     # Mezclar velocidades (Kalman + directas)
                     vx = vx * (1 - alpha_v) + smoothed_velocity[0] * alpha_v
