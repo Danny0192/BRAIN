@@ -9,7 +9,7 @@ import traceback
 
 try:
     # === CONFIGURA TU RUTA ===
-    ruta_output = r"C:\\Users\\Danny\\Desktop\\Brain\\BRAIN"
+    ruta_output = "/BRAIN"
     nombre_archivo = "video_keypoints.mp4"
     ruta_completa = os.path.join(ruta_output, nombre_archivo)
 
