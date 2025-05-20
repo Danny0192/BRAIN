@@ -14,7 +14,7 @@ from sort import Sort
 import math
 import tkinter as tk
 from tkinter import ttk
-
+import os
 def calcular_aceleracion_total(ax, ay, az):
     return math.sqrt(ax**2 + ay**2 + az**2)
 
@@ -39,11 +39,11 @@ def process_body_force(idx, ax, ay, az, masa):
     }
     
     if idx == 7 or idx == 8:
-        F0 = 1800
+        F0 = 2300
     elif idx == 13 or idx==14:
-        F0 = 2500
+        F0 = 4600
     else:
-        F0=1500
+        F0=2100
     fuerza = calcular_fuerza(masa, ax, ay, az)
     prob = funcion_logistica_fuerza(fuerza, F0=F0)
     print(f"Tobillo {keypoint_names[idx]}: Fuerza = {fuerza:.1f} N, Probabilidad de lesión = {prob*100:.1f}%")
@@ -89,7 +89,6 @@ try:
     # Mostrar la masa capturada
     print("Masa ingresada:", masa_valor)
     tracker1 = Sort()
-    nombre_archivo = 'datosss.csv'
     # Definir el dispositivo para YOLO
     print("Inicializando YOLO...")
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -183,11 +182,18 @@ try:
         16: "Tobillo_Der"
     }
 
-    def agregar_fila_csv(nombre_archivo, datos):
-        """Agrega una fila de datos a un archivo CSV."""
-        with open(nombre_archivo, mode='a', newline='', encoding='utf-8') as archivo:
-            escritor = csv.writer(archivo)
-            escritor.writerow(datos)
+    ruta_guardado = "BRAIN/"
+    os.makedirs(ruta_guardado, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archivo_txt = os.path.join(ruta_guardado, f"posiciones_{timestamp}.txt")
+    archivo_video = os.path.join(ruta_guardado, f"video_{timestamp}.mp4")
+    frame_size = (640, 480)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fps_video = 10
+    video_writer = cv2.VideoWriter(archivo_video, fourcc, fps_video, frame_size)
+    def agregar_linea_txt(archivo, datos):
+        with open(archivo, mode='a', encoding='utf-8') as f:
+            f.write(','.join(map(str, datos)) + '\n')
 
     # Función para convertir de píxeles a coordenadas 3D en centímetros
     def pixel_to_cm(pixel_x, pixel_y, depth_value, intrinsics):
@@ -229,7 +235,9 @@ try:
             
         return result
     
-    
+    with open(archivo_txt, mode='w', encoding='utf-8') as archivo:
+        archivo.write("Timestamp,Keypoint_ID,Keypoint_Nombre,X_cm,Y_cm,Z_cm,V_x, V_y, V_z, A_x, A_y,A_z,Probability %\n")
+
     print("Esperando 2 segundos para que la cámara se inicialice...")
     time.sleep(2)
     
@@ -395,7 +403,8 @@ try:
                         print(f"  Acc: X={ax:.1f}, Y={ay:.1f}, Z={az:.1f} cm/s² (Mag={acc_magnitude:.1f})")
                         current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                         probability = process_body_force(idx,ax,ay,az,masa_valor)
-                        agregar_fila_csv(nombre_archivo, [current_time_str, idx, ax, ay, az, probability])
+                        agregar_linea_txt(archivo_txt, [current_time_str, idx,keypoint_names[idx],x_filtered,y_filtered,z_filtered,vx,vy,vz, ax, ay, az, round(probability*100)])
+
 
                     # Dibujar keypoint
                     cv2.circle(color_image, (x, y), 5, (0, 255, 0), -1)
@@ -454,7 +463,8 @@ try:
             cv2.imshow('Pose Detection', color_image)
             depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.5), cv2.COLORMAP_JET)
             cv2.imshow('Depth Image', depth_colormap)
-
+            video_writer.write(color_image)
+            
             key = cv2.waitKey(1)
             if key & 0xFF == ord('q'):
                 print("\nPrograma finalizado por el usuario")
@@ -478,6 +488,12 @@ try:
     print("Cerrando recursos...")
     pipe.stop()
     cv2.destroyAllWindows()
+    try:
+        cv2.destroyAllWindows()
+        if video_writer is not None:
+            video_writer.release()
+    except:
+        pass
     print("Programa finalizado correctamente")
 
 except Exception as e:
@@ -492,7 +508,13 @@ except Exception as e:
     
     try:
         cv2.destroyAllWindows()
+        if video_writer is not None:
+            video_writer.release()
     except:
         pass
     
     print("Programa terminado con errores")
+
+finally:
+    if video_writer is not None:
+        video_writer.release()
