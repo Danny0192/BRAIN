@@ -189,7 +189,7 @@ try:
     archivo_video = os.path.join(ruta_guardado, f"video_{timestamp}.mp4")
     frame_size = (640, 480)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    fps_video = 10
+    fps_video = 16
     video_writer = cv2.VideoWriter(archivo_video, fourcc, fps_video, frame_size)
     def agregar_linea_txt(archivo, datos):
         with open(archivo, mode='a', encoding='utf-8') as f:
