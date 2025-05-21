@@ -191,6 +191,8 @@ try:
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     fps_video = 16
     video_writer = cv2.VideoWriter(archivo_video, fourcc, fps_video, frame_size)
+    archivo_video = os.path.join(ruta_guardado, f"profundidad_{timestamp}.mp4")
+    video_writer_profundidad = cv2.VideoWriter(archivo_video, fourcc, fps_video, frame_size)
     def agregar_linea_txt(archivo, datos):
         with open(archivo, mode='a', encoding='utf-8') as f:
             f.write(','.join(map(str, datos)) + '\n')
@@ -464,7 +466,7 @@ try:
             depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.5), cv2.COLORMAP_JET)
             cv2.imshow('Depth Image', depth_colormap)
             video_writer.write(color_image)
-            
+            video_writer_profundidad.write(depth_colormap)
             key = cv2.waitKey(1)
             if key & 0xFF == ord('q'):
                 print("\nPrograma finalizado por el usuario")
@@ -492,6 +494,8 @@ try:
         cv2.destroyAllWindows()
         if video_writer is not None:
             video_writer.release()
+        if video_writer_profundidad is not None:
+            video_writer_profundidad.release()
     except:
         pass
     print("Programa finalizado correctamente")
@@ -510,6 +514,8 @@ except Exception as e:
         cv2.destroyAllWindows()
         if video_writer is not None:
             video_writer.release()
+        if video_writer_profundidad is not None:
+            video_writer_profundidad.release()
     except:
         pass
     
@@ -518,3 +524,5 @@ except Exception as e:
 finally:
     if video_writer is not None:
         video_writer.release()
+    if video_writer_profundidad is not None:
+        video_writer_profundidad.release()

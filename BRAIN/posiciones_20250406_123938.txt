@@ -1,1 +1,0 @@
-Timestamp,Keypoint_ID,Keypoint_Nombre,X_cm,Y_cm,Z_cm
